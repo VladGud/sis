@@ -1,0 +1,10 @@
+---
+- name: Create cronjob to print message
+  hosts: webservers
+  tasks:
+    - name: Create cronjob
+      cron:
+        name: "bedtime_message"
+        minute: "59"
+        hour: "23"
+        job: "echo 'Go to bed'"

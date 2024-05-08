@@ -1,0 +1,65 @@
+#!/usr/sbin/nft -f
+
+# Задача 1: Разрешить все пакеты на интерфейсе eth0 в цепочке input
+table filter {
+    chain input {
+        type filter hook input priority 0;
+        # Разрешаем все пакеты на интерфейсе eth0
+        iifname "eth0" accept
+    }
+}
+
+# Задача 2: Запретить все пакеты с интерфейса eth1 в цепочке output
+table filter {
+    chain output {
+        type filter hook output priority 0;
+        # Запрещаем все пакеты с интерфейса eth1
+        oifname "eth1" drop
+    }
+}
+
+# Задача 3: Разрешить все пакеты, отправленные на порт 80, в цепочке input
+table filter {
+    chain input {
+        type filter hook input priority 0;
+        # Разрешаем пакеты на порту 80
+        tcp dport 80 accept
+    }
+}
+
+# Задача 4: Запретить все пакеты, отправленные на порт 22, в цепочке input
+table filter {
+    chain input {
+        type filter hook input priority 0;
+        # Запрещаем пакеты на порту 22
+        tcp dport 22 drop
+    }
+}
+
+# Задача 5: Разрешить все пакеты, отправленные на порт 443, только если они пришли с определенного IP-адреса (192.168.1.100)
+table filter {
+    chain input {
+        type filter hook input priority 0;
+        policy drop;
+        # Разрешаем пакеты на порту 443 с определенного IP-адреса
+        ip saddr 192.168.1.100 tcp dport 443 accept
+    }
+}
+
+# Задача 6: Перенаправить все пакеты, отправленные на порт 80, на порт 8080 в цепочке prerouting
+table nat {
+    chain prerouting {
+        type nat hook prerouting priority 0;
+        # Перенаправляем пакеты с порта 80 на порт 8080
+        tcp dport 80 dnat :8080
+    }
+}
+
+# Задача 7: Изменить исходящий IP-адрес на определенный в цепочке postrouting
+table nat {
+    chain postrouting {
+        type nat hook postrouting priority 0;
+        # Изменяем исходящий IP-адрес на определенный
+        ip saddr 192.168.1.0/24 oifname "eth0" masquerade
+    }
+}

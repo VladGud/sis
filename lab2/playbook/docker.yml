@@ -1,0 +1,25 @@
+- name: Deploy Docker containers on localhost
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Pull Docker nginx image
+      docker_image:
+        name: nginx
+        source: pull
+
+    - name: Run Docker nginx container
+      docker_container:
+        name: nginx_container_1
+        image: nginx
+        state: started
+
+    - name: Pull Docker postgres image
+      docker_image:
+        name: postgres
+        source: pull
+
+    - name: Run Docker postgres container
+      docker_container:
+        name: postgres_container_1
+        image: postgres
+        state: started

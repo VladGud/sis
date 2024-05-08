@@ -1,0 +1,20 @@
+#!/usr/sbin/nft -f
+
+# Создаем таблицу и цепочку для блокировки пакетов
+table ip my_table {
+    chain block_packets {
+        type filter hook input priority 0;
+        # Блокируем пакеты, отправленные с IP-адресов из набора blacklist на порты из набора my_ports
+        ip saddr @blacklist tcp dport @my_ports drop
+    }
+
+    set my_ports {
+        type inet_service
+        elements = { 80, 443, 8080 } # Добавьте нужные порты
+    }
+
+    set blacklist {
+        type ipv4_addr
+        elements = { 192.168.1.10, 192.168.1.20 } # Добавьте нужные IP-адреса
+    }
+}

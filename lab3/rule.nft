@@ -1,0 +1,43 @@
+#!/usr/sbin/nft -f
+
+# Создаем наборы для IP-адресов
+table ip my_table {
+}
+
+# Создаем таблицу с тремя цепочками A, B, C
+table ip my_table {
+    set A_set {
+        type ipv4_addr
+        elements = { 192.168.1.10, 192.168.1.20 } # Добавьте нужные IP-адреса для A_set
+    }
+
+    set B_set {
+        type ipv4_addr
+        elements = { 10.0.0.10, 10.0.0.20 } # Добавьте нужные IP-адреса для B_set
+    }
+
+    set C_set {
+        type ipv4_addr
+        elements = { 172.16.0.10, 172.16.0.20 } # Добавьте нужные IP-адреса для C_set
+    }
+
+    chain my_input {
+        type filter hook input priority 0;
+        policy accept;
+        ip saddr @A_set jump A;
+        ip saddr @B_set jump B;
+        ip saddr @C_set jump C;
+    }
+
+    chain A {
+        drop
+    }
+
+    chain B {
+        drop
+    }
+
+    chain C {
+        accept
+    }
+}

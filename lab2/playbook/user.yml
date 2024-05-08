@@ -1,0 +1,16 @@
+---
+- name: Create user and add to sudoers group
+  hosts: all
+  become: true
+  tasks:
+    - name: Create user
+      user:
+        name: myuser
+        password: "{{ 'mypassword' | password_hash('sha512') }}"
+        shell: /bin/bash
+
+    - name: Add user to sudoers group
+      user:
+        name: myuser
+        groups: sudo
+        append: yes

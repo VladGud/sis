@@ -1,0 +1,143 @@
+- name: Security Analysis Playbook
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check distribution and version
+      block:
+        - name: Check if distribution is Ubuntu or Debian
+          fail:
+            msg: "This playbook supports only Ubuntu 20.04 and Debian 11"
+          when: ansible_distribution not in ['Ubuntu', 'Debian']
+
+        - name: Check if distribution version is supported
+          fail:
+            msg: "This playbook supports only Ubuntu 20.04 and Debian 11"
+          when: ansible_distribution == 'Ubuntu' and ansible_distribution_version != '20.04'
+                 or ansible_distribution == 'Debian' and ansible_distribution_version != '11'
+
+    # Check file mode
+    - name: Check validity of /etc/shadow permissions
+      stat:
+        path: /etc/shadow
+      register: shadow_stat
+      
+    - name: Check /etc/shadow permissions
+      debug:
+        msg: "/etc/shadow permissions are not valid"
+      when: shadow_stat.stat.mode != '0600'
+      
+    - name: Find SSH public keys in /root/.ssh/
+      find:
+        paths: /root/.ssh/
+        patterns: "*.pub"
+        file_type: file
+      register: root_ssh_pub_keys
+      
+    - name: Check SSH public keys permissions in /root/.ssh/
+      debug:
+        msg: "SSH public keys in /root/.ssh/ have incorrect permissions"
+      with_items: "{{ root_ssh_pub_keys.files }}"
+      when: item.mode != '0644'
+
+    - name: Find SSH private keys in /root/.ssh/
+      find:
+        paths: /root/.ssh/
+        patterns: "*"
+        file_type: file
+        exclude: "*.pub"
+      register: root_ssh_private_keys
+      
+    - name: Check SSH private keys permissions in /root/.ssh/
+      debug:
+        msg: "SSH private keys in /root/.ssh/ have incorrect permissions"
+      with_items: "{{ root_ssh_private_keys.files }}"
+      when: item.mode != '0600'
+
+    - name: Find SSH public keys permissions in /home/*/ssh/
+      shell: find /home/*/ -wholename '*.ssh/*' -type f -name '*.pub' -exec stat -c "%a" {} \;
+      register: user_ssh_pub_keys
+      
+    - name: Check SSH public keys permissions in /home/*/ssh/
+      debug:
+        msg: "SSH public keys in /home/*/ssh/ have incorrect permissions"
+      with_items: "{{ user_ssh_pub_keys.stdout_lines }}"
+      when: item != '644'
+
+    - name: Find SSH private keys permissions in /home/*/ssh/
+      shell: find /home/*/ -wholename '*.ssh/*' -type f ! -name '*.pub' -exec stat -c "%a" {} \;
+      register: user_ssh_private_keys
+      
+    - name: Check SSH private keys permissions in /home/*/ssh/
+      debug:
+        msg: "SSH private keys in /home/*/ssh/ have incorrect permissions"
+      with_items: "{{ user_ssh_private_keys.stdout_lines }}"
+      when: item != '600'
+
+    - name: Find executable file with set suid
+      shell: find / -type f -executable -perm -u+s 2>/dev/null
+      register: found_suid_files
+      ignore_errors: yes
+
+    - name: Check found_suid_files by used stat
+      debug:
+        msg: "Found executable file {{ item }} with set suid and mode"
+      with_items: "{{ found_suid_files.stdout_lines }}"
+      when: item in predefined_list
+      vars:
+        predefined_list:
+          - sysctl
+          - systemctl
+          - systemd-resolve
+          - apache2ctl
+          # add other
+
+    - name: Read file /etc/ssh/sshd_config
+      slurp:
+        src: /etc/ssh/sshd_config
+      register: sshd_config_text
+
+    - name: Check PermitRootLogin
+      debug:
+        msg: "PermitRootLogin set to yes"
+      when: ("'PermitRootLogin yes' in sshd_config_text.content") or ("'PermitRootLogin without-password' in sshd_config_text.content")
+
+    - name: Check PasswordAuthentication
+      debug:
+        msg: "PasswordAuthentication set to yes"
+      when: "'PasswordAuthentication yes' in sshd_config_text.content"
+
+    - name: Check PermitEmptyPassword
+      debug:
+        msg: "PermitEmptyPassword set to yes"
+      when: "'PermitEmptyPassword yes' in sshd_config_text.content"
+
+    - name: Get version for policykit-1
+      shell: dpkg -s policykit-1 | grep -oP "Version:\s+\K.*"
+      register: policykit_version_result
+
+    - name: Extract PolicyKit version
+      set_fact:
+        policykit_version: "{{ policykit_version_result.stdout }}"
+
+    - name: Check version policykit-1
+      debug:
+        msg: "Vulner policykit_version {{ policykit_version }}"
+      when: "policykit_version is version('0.105-18', '<=')"
+
+    - name: Get kernel version
+      command: uname -r
+      register: kernel_version_result
+
+    - name: Extract kernel version
+      set_fact:
+        kernel_version: "{{ kernel_version_result.stdout | regex_replace('^(\\d+\\.\\d+\\.\\d+).*', '\\1') }}"
+
+    - name: Check dirty cow version
+      debug:
+        msg: "Vulner kernel have old and dirty cow"
+      when: "kernel_version is version('4.8.3', '<=')"
+
+    - name: Check dirty pipe of the kernel
+      debug:
+        msg: "Vulner kernel have old dirty pipe"
+      when: "(kernel_version is version('5.8.0', '>=') and kernel_version is version('5.16.11', '<='))"
