@@ -1,0 +1,40 @@
+id: airflow-api-default-login
+
+info:
+  name: Apache Airflow API - Default Logins
+  author: Pavel Parkhomets
+  severity: critical
+  tags: api,airflow,default-login,brute-force
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/v1/dags"
+    headers:
+      # Auth in Airflow by using Basic HTTP
+      Authorization: "Basic {{base64(username + ':' + password)}}"
+      Content-Type: application/json
+    payloads:
+      username:
+        - "airflow"
+        # default user admin
+        - "admin"
+      password:
+        - "airflow"
+        # default password admin
+        - "admin"
+    # Cross Join for payload set
+    attack: clusterbomb
+    # if ('dag_id' in response) and (not kafka_server_socketservermetrics_successful_reauthentication_rate in response)
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "dag_id"
+      - type: word
+        words:
+          - "kafka_server_socketservermetrics_successful_reauthentication_rate"
+        part: body
+        negative: true
+    # stop fuzzing when found combination
+    stop-at-first-match: true

